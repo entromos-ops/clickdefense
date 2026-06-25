@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Analytics } from "@vercel/analytics/react";
 
 const STORAGE_KEY = "clicksprint:wave:v1";
 const LEGACY_STORAGE_KEYS = ["clicksprint:stats:v2", "clicksprint:stats:v1"];
@@ -1779,6 +1780,7 @@ function App() {
   }
 
   return (
+    <>
     <main className={`app-shell mobile-${mobileView}-open run-${session.status}`} style={{ "--theme-accent": daily.theme.accent }}>
       <section className={`game-card game-${session.status} ${shieldDanger ? "shield-danger" : ""} ${shieldBroken ? "shield-broken" : ""}`} aria-label="ClickDefense wave game">
         <header className="game-header">
@@ -2101,6 +2103,8 @@ function App() {
         />
       ) : null}
     </main>
+    <Analytics />
+    </>
   );
 }
 
