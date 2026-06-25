@@ -960,6 +960,7 @@ function EndScreen({ session, meta, daily, shareStatus, onShare, onOpenWorkshop,
             <strong>{formatNumber(session.milestoneCoins)} ◎</strong>
           </div>
         </div>
+        <div className="end-actions">
         <button className="ad-button" type="button" disabled={doubleDisabled} onClick={onDoubleCoins}>
           {session.adBonusClaimed ? `Reward claimed +${formatNumber(session.adBonusCoins)} ◎` : `Watch ad to double coins (+${formatNumber(session.runCoins)} ◎)`}
         </button>
@@ -975,6 +976,7 @@ function EndScreen({ session, meta, daily, shareStatus, onShare, onOpenWorkshop,
         <button className="run-again-button" type="button" onClick={onOpenWorkshop}>
           Open workshop
         </button>
+        </div>
       </div>
     </section>
   );
@@ -1261,13 +1263,13 @@ function App() {
       shield: nextShield,
       runCoins: current.runCoins + reward,
       score: current.score + reward * 12,
-      targetIndex: current.targetIndex + 1,
+      targetIndex: current.targetIndex + 4,
       lastWaveReward: reward,
       pendingAttack: null,
       bossesDefeated: current.bossesDefeated + (clearedBoss ? 1 : 0),
       bestBossWaveInRun: clearedBoss ? Math.max(current.bestBossWaveInRun, current.wave) : current.bestBossWaveInRun,
       milestoneCoins: current.milestoneCoins + milestoneBonus,
-      nextAttackAt: now + attackInterval(nextWave, isBossWave(nextWave), levels, mutation),
+      nextAttackAt: now + Math.min(850, attackInterval(nextWave, isBossWave(nextWave), levels, mutation)),
     };
   }
 
@@ -1316,7 +1318,7 @@ function App() {
       return defeated ? clearWave(next, reward, now, milestoneBonus) : next;
     });
 
-    if (burst) addBurst(burst, burst.kind === "explosion" ? 960 : 700);
+    if (burst) addBurst(burst, burst.kind === "explosion" ? 640 : 700);
   }
 
   function missField(event) {
@@ -1584,8 +1586,8 @@ function App() {
   }
 
   return (
-    <main className={`app-shell mobile-${mobileView}-open`} style={{ "--theme-accent": daily.theme.accent }}>
-      <section className="game-card" aria-label="ClickDefense wave game">
+    <main className={`app-shell mobile-${mobileView}-open run-${session.status}`} style={{ "--theme-accent": daily.theme.accent }}>
+      <section className={`game-card game-${session.status}`} aria-label="ClickDefense wave game">
         <header className="game-header">
           <div className="brand-lockup">
             <span className="speed-lines" aria-hidden="true" />
