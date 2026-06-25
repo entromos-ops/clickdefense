@@ -794,14 +794,25 @@ function performanceLine(session) {
 }
 
 function shareTextFor(session, daily) {
-  const url = window.location.href;
-  return `ClickDefense ${daily.theme.emoji} ${daily.theme.name}\nScore: ${formatNumber(session.score)}\nWave: ${session.wave} | Rank: ${rankForWave(session.wave)}\n${performanceLine(session)}\n${url}`;
+  const url = window.location.origin || window.location.href;
+  const rank = rankForWave(session.wave);
+  return [
+    `ClickDefense ${daily.theme.emoji} ${daily.theme.name}`,
+    `Score: ${formatNumber(session.score)}`,
+    `Wave ${session.wave} - ${rank}`,
+    performanceLine(session),
+    url,
+  ].join("\n");
 }
 
 async function copyText(text) {
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Some desktop shells expose clipboard.writeText but deny permission.
+    }
   }
 
   const textarea = document.createElement("textarea");
@@ -813,6 +824,15 @@ async function copyText(text) {
   textarea.select();
   document.execCommand("copy");
   textarea.remove();
+}
+
+function shouldUseNativeShare() {
+  if (typeof navigator.share !== "function") return false;
+
+  const userAgent = navigator.userAgent || "";
+  const mobileDevice = /Android|iPhone|iPad|iPod/i.test(userAgent);
+  const touchMac = /Macintosh/i.test(userAgent) && Number(navigator.maxTouchPoints) > 1;
+  return mobileDevice || touchMac;
 }
 
 function HudStat({ label, value, tone = "" }) {
@@ -908,7 +928,7 @@ function StartGateButton({ wave, meta, progressWave, onBuy, onSelect }) {
   );
 }
 
-function EndScreen({ session, meta, daily, shareStatus, onShare, onOpenWorkshop, onDoubleCoins }) {
+function EndScreen({ session, meta, daily, shareStatus, bonusNotice, onShare, onOpenWorkshop, onDoubleCoins }) {
   const runMissRate = missRateForCounts(session.hits, session.misses);
   const doubleDisabled = session.adBonusClaimed || session.runCoins <= 0;
   const mutation = mutationById(session.mutationId);
@@ -963,9 +983,15 @@ function EndScreen({ session, meta, daily, shareStatus, onShare, onOpenWorkshop,
             <strong>{formatNumber(session.milestoneCoins)} ◎</strong>
           </div>
         </div>
+        {bonusNotice ? (
+          <div className="bonus-pop" role="status" aria-live="polite">
+            <strong>Thanks for clicking.</strong>
+            <span>No ads yet, so here are your coins: +{formatNumber(bonusNotice.coins)} coins</span>
+          </div>
+        ) : null}
         <div className="end-actions">
         <button className="ad-button" type="button" disabled={doubleDisabled} onClick={onDoubleCoins}>
-          {session.adBonusClaimed ? `Reward claimed +${formatNumber(session.adBonusCoins)} ◎` : `Watch ad to double coins (+${formatNumber(session.runCoins)} ◎)`}
+          {session.adBonusClaimed ? `Reward claimed +${formatNumber(session.adBonusCoins)} ◎` : `Double coins (+${formatNumber(session.runCoins)} ◎)`}
         </button>
         <button className="share-button" type="button" disabled={shareStatus === "working"} onClick={onShare}>
           {shareStatus === "working"
@@ -995,6 +1021,7 @@ function App() {
   const [shots, setShots] = useState([]);
   const [missFeedback, setMissFeedback] = useState(null);
   const [shareStatus, setShareStatus] = useState("idle");
+  const [bonusNotice, setBonusNotice] = useState(null);
   const [showEndScreen, setShowEndScreen] = useState(false);
   const [mobileView, setMobileView] = useState("game");
   const [openUpgradeLanes, setOpenUpgradeLanes] = useState({
@@ -1620,6 +1647,7 @@ function App() {
     metaRef.current = nextMeta;
     finishedRunRef.current = "";
     setShareStatus("idle");
+    setBonusNotice(null);
     setShowEndScreen(false);
     setBursts([]);
     setShots([]);
@@ -1672,6 +1700,7 @@ function App() {
     }
     finishedRunRef.current = "";
     setShareStatus("idle");
+    setBonusNotice(null);
     setShowEndScreen(false);
     setMobileView("game");
     setBursts([]);
@@ -1681,6 +1710,7 @@ function App() {
 
   function openWorkshopPanel() {
     if (sessionRef.current.status === "active") return;
+    setBonusNotice(null);
     setShowEndScreen(false);
     setMobileView("workshop");
   }
@@ -1690,7 +1720,7 @@ function App() {
     setShareStatus("working");
 
     try {
-      if (navigator.share) {
+      if (shouldUseNativeShare()) {
         await navigator.share({ title: "ClickDefense", text });
         setShareStatus("shared");
       } else {
@@ -1729,6 +1759,7 @@ function App() {
       },
       lastRun: current.lastRun ? { ...current.lastRun, adBonusCoins: bonus } : current.lastRun,
     }));
+    setBonusNotice({ coins: bonus });
   }
 
   return (
@@ -2047,6 +2078,7 @@ function App() {
           meta={meta}
           daily={daily}
           shareStatus={shareStatus}
+          bonusNotice={bonusNotice}
           onShare={shareScore}
           onDoubleCoins={claimDoubleCoins}
           onOpenWorkshop={openWorkshopPanel}

@@ -2398,6 +2398,35 @@ h1 {
   white-space: nowrap;
 }
 
+.bonus-pop {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 207, 49, 0.78);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 207, 49, 0.22), rgba(31, 199, 154, 0.12)),
+    #fff8d7;
+  color: var(--ink);
+  box-shadow:
+    0 7px 0 rgba(122, 58, 0, 0.18),
+    0 0 24px rgba(255, 207, 49, 0.38);
+  animation: bonusPopIn 260ms cubic-bezier(0.16, 0.88, 0.22, 1) both;
+}
+
+.bonus-pop strong {
+  color: #7a3a00;
+  font-size: 0.9rem;
+  font-weight: 1000;
+}
+
+.bonus-pop span {
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
 .end-actions {
   position: sticky;
   bottom: -18px;
@@ -2545,6 +2574,18 @@ h1 {
   100% {
     opacity: 0;
     transform: translateY(-18px) scale(1);
+  }
+}
+
+@keyframes bonusPopIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
