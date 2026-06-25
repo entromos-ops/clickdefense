@@ -1050,6 +1050,7 @@ function App() {
       const now = Date.now();
       let shotToAdd = null;
       let shotDuration = 720;
+      let shieldImpact = null;
 
       setSession((current) => {
         if (current.status !== "active") return current;
@@ -1058,6 +1059,10 @@ function App() {
           const damage = current.pendingAttack.damage;
           const shield = current.shield - damage;
           const currentBoss = current.pendingAttack.boss;
+          shieldImpact = {
+            boss: currentBoss,
+            damage,
+          };
 
           if (shield <= 0) {
             const rebootShield = current.rebootUsed ? 0 : shieldRebootValue(metaRef.current, current.maxShield);
@@ -1121,6 +1126,7 @@ function App() {
       });
 
       if (shotToAdd) addShot(shotToAdd, shotDuration);
+      if (shieldImpact) triggerShieldHitFeedback(shieldImpact);
     }, 150);
 
     return () => window.clearInterval(intervalId);
@@ -1237,39 +1243,57 @@ function App() {
       const oscillator = context.createOscillator();
       const gain = context.createGain();
       const fullMiss = kind === "miss";
-      oscillator.type = fullMiss ? "square" : "triangle";
-      oscillator.frequency.setValueAtTime(fullMiss ? 126 : 196, now);
-      oscillator.frequency.exponentialRampToValueAtTime(fullMiss ? 72 : 142, now + 0.09);
-      gain.gain.setValueAtTime(fullMiss ? 0.055 : 0.032, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      const shieldHit = kind === "shield-hit" || kind === "boss-hit";
+      const bossHit = kind === "boss-hit";
+      oscillator.type = shieldHit ? "sawtooth" : fullMiss ? "square" : "triangle";
+      oscillator.frequency.setValueAtTime(bossHit ? 86 : shieldHit ? 112 : fullMiss ? 126 : 196, now);
+      oscillator.frequency.exponentialRampToValueAtTime(bossHit ? 42 : shieldHit ? 58 : fullMiss ? 72 : 142, now + (shieldHit ? 0.13 : 0.09));
+      gain.gain.setValueAtTime(bossHit ? 0.078 : shieldHit ? 0.062 : fullMiss ? 0.055 : 0.032, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + (shieldHit ? 0.15 : 0.1));
       oscillator.connect(gain);
       gain.connect(context.destination);
       oscillator.start(now);
-      oscillator.stop(now + 0.11);
+      oscillator.stop(now + (shieldHit ? 0.16 : 0.11));
     } catch {
       // Haptics and visual feedback still carry the miss if audio is unavailable.
     }
   }
 
-  function triggerMissFeedback(penalty) {
-    const kind = penalty.damage > 0 ? (penalty.near ? "near" : "miss") : "graze";
+  function triggerArenaFeedback({ kind, label, duration = 620 }) {
     const now = Date.now();
     feedbackIdRef.current += 1;
     const id = `feedback-${now}-${kind}-${feedbackIdRef.current}`;
     setMissFeedback({
       id,
       kind,
-      label: penalty.label,
+      label,
     });
 
     window.setTimeout(() => {
       setMissFeedback((current) => (current?.id === id ? null : current));
-    }, 620);
+    }, duration);
 
+    playMissSound(kind);
+  }
+
+  function triggerMissFeedback(penalty) {
+    const kind = penalty.damage > 0 ? (penalty.near ? "near" : "miss") : "graze";
     if (navigator.vibrate) {
       navigator.vibrate(kind === "miss" ? [24, 34, 28] : kind === "near" ? 14 : 8);
     }
-    playMissSound(kind);
+    triggerArenaFeedback({ kind, label: penalty.label });
+  }
+
+  function triggerShieldHitFeedback({ boss: hitFromBoss, damage }) {
+    const kind = hitFromBoss ? "boss-hit" : "shield-hit";
+    if (navigator.vibrate) {
+      navigator.vibrate(hitFromBoss ? [32, 34, 32] : [18, 28, 18]);
+    }
+    triggerArenaFeedback({
+      kind,
+      label: hitFromBoss ? `Boss hit -${damage}` : `Shield hit -${damage}`,
+      duration: hitFromBoss ? 720 : 640,
+    });
   }
 
   function incomingShotFor(current, damage, now, windup) {
