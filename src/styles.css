@@ -616,6 +616,7 @@ h1 {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.06),
     0 8px 18px rgba(7, 21, 63, 0.2);
+  pointer-events: none;
 }
 
 .field-status {
@@ -736,6 +737,36 @@ h1 {
   animation: shieldPanelHit 460ms ease-out infinite;
 }
 
+.game-card.shield-danger .play-field {
+  animation: arenaDangerPulse 760ms ease-in-out infinite;
+}
+
+.shield-panel.danger {
+  border-color: rgba(255, 92, 71, 0.9);
+  background:
+    linear-gradient(180deg, rgba(54, 15, 37, 0.96), rgba(7, 21, 63, 0.94)),
+    rgba(255, 92, 71, 0.2);
+  animation: shieldDangerPulse 520ms ease-in-out infinite;
+}
+
+.shield-panel.danger .shield-bar span {
+  background: linear-gradient(90deg, #ff5c47, #ffcf31);
+}
+
+.shield-panel.broken {
+  border-color: rgba(255, 92, 71, 0.95);
+  background:
+    linear-gradient(180deg, rgba(54, 15, 37, 0.98), rgba(7, 21, 63, 0.96)),
+    rgba(255, 92, 71, 0.22);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 32px rgba(255, 92, 71, 0.66);
+}
+
+.shield-panel.broken .shield-bar span {
+  background: linear-gradient(90deg, #ff5c47, #ffcf31);
+}
+
 .shield-generator {
   position: absolute;
   left: 18px;
@@ -777,6 +808,36 @@ h1 {
 
 .shield-generator.under-fire .shield-dome::after {
   animation: shieldImpact 520ms ease-out infinite;
+}
+
+.shield-generator.danger .shield-dome {
+  border-color: rgba(255, 92, 71, 0.86);
+  box-shadow:
+    inset 0 18px 28px rgba(255, 255, 255, 0.12),
+    0 0 34px rgba(255, 92, 71, 0.62);
+  animation: shieldDomeDanger 620ms ease-in-out infinite;
+}
+
+.shield-generator.broken {
+  z-index: 11;
+  opacity: 1;
+}
+
+.shield-generator.broken .shield-dome {
+  width: 76%;
+  min-width: 0;
+  border-color: rgba(255, 207, 49, 0.9);
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(255, 207, 49, 0.42), transparent 68%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 92, 71, 0.2));
+  box-shadow:
+    inset 0 18px 30px rgba(255, 255, 255, 0.18),
+    0 0 54px rgba(255, 92, 71, 0.86);
+  animation: shieldDomeBreak 1500ms cubic-bezier(0.16, 0.88, 0.22, 1) forwards;
+}
+
+.shield-generator.broken .shield-core {
+  animation: shieldCoreBreak 1500ms cubic-bezier(0.16, 0.88, 0.22, 1) forwards;
 }
 
 .shield-core,
@@ -830,7 +891,7 @@ h1 {
   position: absolute;
   left: var(--target-x);
   top: var(--target-y);
-  z-index: 6;
+  z-index: 8;
   display: grid;
   place-items: center;
   width: var(--target-size);
@@ -846,6 +907,22 @@ h1 {
     width 140ms ease,
     height 140ms ease;
   -webkit-tap-highlight-color: transparent;
+}
+
+.game-card.shield-broken .tap-target {
+  opacity: 0;
+  pointer-events: none;
+  animation: none;
+}
+
+.game-card.shield-broken .tap-instruction,
+.game-card.shield-broken .field-status {
+  display: none;
+}
+
+.game-card.shield-broken .enemy-panel,
+.game-card.shield-broken .wave-banner {
+  opacity: 0.55;
 }
 
 .tap-target:disabled {
@@ -1204,6 +1281,23 @@ h1 {
   animation-duration: 680ms;
 }
 
+.miss-feedback.shield-break {
+  animation-duration: 1740ms;
+}
+
+.miss-feedback.shield-break::before {
+  background:
+    radial-gradient(circle at 50% 78%, rgba(255, 255, 255, 0.7), transparent 16%),
+    radial-gradient(circle at 50% 78%, rgba(255, 207, 49, 0.62), transparent 34%),
+    radial-gradient(circle at 50% 52%, rgba(255, 92, 71, 0.5), transparent 68%),
+    linear-gradient(180deg, rgba(255, 92, 71, 0.48), rgba(54, 15, 37, 0.32));
+  box-shadow:
+    inset 0 0 0 12px rgba(255, 92, 71, 0.94),
+    inset 0 0 88px rgba(255, 207, 49, 0.72),
+    inset 0 -24px 108px rgba(255, 92, 71, 0.92);
+  animation-duration: 1400ms;
+}
+
 .miss-feedback b {
   position: relative;
   z-index: 1;
@@ -1237,6 +1331,119 @@ h1 {
     0 8px 0 rgba(122, 30, 30, 0.36),
     0 0 24px rgba(255, 92, 71, 0.64);
   animation-duration: 720ms;
+}
+
+.miss-feedback.shield-break b {
+  border-color: rgba(255, 207, 49, 0.96);
+  background: rgba(54, 15, 37, 0.94);
+  box-shadow:
+    0 9px 0 rgba(122, 30, 30, 0.42),
+    0 0 30px rgba(255, 207, 49, 0.74);
+  animation-duration: 1500ms;
+}
+
+.shield-break-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 13;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  color: #ffffff;
+  pointer-events: none;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow:
+    0 4px 0 rgba(7, 21, 63, 0.55),
+    0 0 22px rgba(255, 207, 49, 0.86);
+  animation: breachOverlayFade 1850ms ease-out forwards;
+}
+
+.shield-break-overlay::before {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 78%, rgba(255, 255, 255, 0.46), transparent 14%),
+    radial-gradient(circle at 50% 78%, rgba(255, 207, 49, 0.54), transparent 34%),
+    radial-gradient(circle at 50% 54%, rgba(255, 92, 71, 0.3), transparent 68%);
+  content: "";
+  animation: breachScreenBloom 1700ms ease-out forwards;
+}
+
+.shield-break-overlay strong,
+.shield-break-overlay small {
+  position: relative;
+  z-index: 2;
+}
+
+.shield-break-overlay strong {
+  font-size: clamp(1.34rem, 7vw, 2.1rem);
+  font-weight: 1000;
+  letter-spacing: 0;
+}
+
+.shield-break-overlay small {
+  color: var(--lemon);
+  font-size: 0.76rem;
+  font-weight: 1000;
+}
+
+.breach-ring {
+  position: absolute;
+  left: 50%;
+  top: 78%;
+  z-index: 1;
+  width: 150px;
+  height: 150px;
+  border: 7px solid rgba(255, 207, 49, 0.92);
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 10px rgba(255, 255, 255, 0.2),
+    0 0 42px rgba(255, 92, 71, 0.82);
+  transform: translate(-50%, -50%) scale(0.34);
+  animation: breachRing 1600ms cubic-bezier(0.12, 0.84, 0.22, 1) forwards;
+}
+
+.breach-fragment {
+  position: absolute;
+  left: 50%;
+  top: 78%;
+  z-index: 2;
+  width: 18px;
+  height: 12px;
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: 0 4px 0 rgba(7, 21, 63, 0.18);
+  animation: breachFragment 1500ms cubic-bezier(0.12, 0.84, 0.22, 1) forwards;
+}
+
+.breach-fragment.frag-1 {
+  --dx: -74px;
+  --dy: -82px;
+  --rot: -60deg;
+  background: var(--lemon);
+}
+
+.breach-fragment.frag-2 {
+  --dx: 72px;
+  --dy: -66px;
+  --rot: 72deg;
+  background: var(--coral);
+}
+
+.breach-fragment.frag-3 {
+  --dx: -58px;
+  --dy: 48px;
+  --rot: 28deg;
+  background: #8bd7ff;
+}
+
+.breach-fragment.frag-4 {
+  --dx: 64px;
+  --dy: 40px;
+  --rot: -104deg;
+  background: #ffffff;
 }
 
 .field-burst.crit {
@@ -2380,6 +2587,89 @@ h1 {
   }
 }
 
+@keyframes arenaDangerPulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+      inset 0 0 42px rgba(7, 21, 63, 0.26);
+  }
+
+  50% {
+    box-shadow:
+      inset 0 0 0 2px rgba(255, 92, 71, 0.82),
+      inset 0 0 62px rgba(255, 92, 71, 0.48),
+      0 0 24px rgba(255, 92, 71, 0.42);
+  }
+}
+
+@keyframes shieldDangerPulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 8px 18px rgba(7, 21, 63, 0.18);
+  }
+
+  50% {
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+      0 8px 18px rgba(7, 21, 63, 0.18),
+      0 0 28px rgba(255, 92, 71, 0.68);
+  }
+}
+
+@keyframes shieldDomeDanger {
+  0%,
+  100% {
+    filter: brightness(1);
+    transform: translateX(-50%) scale(1);
+  }
+
+  50% {
+    filter: brightness(1.18);
+    transform: translateX(-50%) scale(1.035);
+  }
+}
+
+@keyframes shieldDomeBreak {
+  0% {
+    opacity: 1;
+    filter: brightness(1.5);
+    transform: translateX(-50%) scale(1);
+  }
+
+  34% {
+    opacity: 1;
+    filter: brightness(1.9);
+    transform: translateX(-50%) scale(1.2);
+  }
+
+  100% {
+    opacity: 0;
+    filter: brightness(0.75);
+    transform: translateX(-50%) scale(1.58);
+  }
+}
+
+@keyframes shieldCoreBreak {
+  0% {
+    opacity: 1;
+    filter: brightness(1.5);
+    transform: translateX(-50%) scale(1);
+  }
+
+  42% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-16px) scale(1.2) rotate(4deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px) scale(0.72) rotate(-9deg);
+  }
+}
+
 @keyframes shieldImpact {
   0% {
     opacity: 0.78;
@@ -2389,6 +2679,66 @@ h1 {
   100% {
     opacity: 0;
     transform: scale(1.22);
+  }
+}
+
+@keyframes breachOverlayFade {
+  0%,
+  72% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes breachScreenBloom {
+  0% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+
+  16% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes breachRing {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.34);
+  }
+
+  16% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.7);
+  }
+}
+
+@keyframes breachFragment {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6) rotate(0deg);
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.08) rotate(var(--rot));
   }
 }
 

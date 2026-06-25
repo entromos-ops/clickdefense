@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const STORAGE_KEY = "clicksprint:wave:v1";
 const LEGACY_STORAGE_KEYS = ["clicksprint:stats:v2", "clicksprint:stats:v1"];
+const SHIELD_BREAK_TRANSITION_MS = 1900;
 
 const themes = [
   { name: "Disco Pancakes", emoji: "🪩", accent: "#ffcf31" },
@@ -716,14 +717,16 @@ function targetPosition(seed, wave, targetIndex, levels = {}, mutation = null) {
   const random = mulberry32(hashString(`${seed}:wave:${wave}:target:${targetIndex}`));
   const boss = isBossWave(wave);
   const chaos = movementChaos(wave, boss, levels, mutation);
+  const minY = 16;
+  const maxY = 78;
   const priorRandom = mulberry32(hashString(`${seed}:wave:${wave}:target:${Math.max(0, targetIndex - 1)}`));
   const prior = {
     x: 15 + priorRandom() * 70,
-    y: 18 + priorRandom() * 64,
+    y: minY + priorRandom() * (maxY - minY),
   };
   const next = {
     x: 15 + random() * 70,
-    y: 18 + random() * 64,
+    y: minY + random() * (maxY - minY),
   };
   if (targetIndex <= 0) return next;
 
@@ -732,7 +735,7 @@ function targetPosition(seed, wave, targetIndex, levels = {}, mutation = null) {
   const feintY = (random() - 0.5) * 18 * chaos;
   return {
     x: clamp(prior.x + (next.x - prior.x) * blend + feintX, 12, 88),
-    y: clamp(prior.y + (next.y - prior.y) * blend + feintY, 16, 86),
+    y: clamp(prior.y + (next.y - prior.y) * blend + feintY, minY, maxY),
   };
 }
 
@@ -1004,6 +1007,7 @@ function App() {
   const audioRef = useRef(null);
   const feedbackIdRef = useRef(0);
   const finishedRunRef = useRef("");
+  const endScreenTimerRef = useRef(null);
 
   const boss = isBossWave(session.wave);
   const runLevels = useMemo(() => effectiveLevels(meta), [meta]);
@@ -1011,6 +1015,8 @@ function App() {
   const target = targetPosition(daily.seed, session.wave, session.targetIndex, runLevels, runMutation);
   const hpPercent = clamp((session.enemyHp / session.enemyMaxHp) * 100, 0, 100);
   const shieldPercent = clamp((session.shield / session.maxShield) * 100, 0, 100);
+  const shieldDanger = session.status === "active" && session.shield > 0 && shieldPercent <= 25;
+  const shieldBroken = session.status === "ended" && session.shield <= 0;
   const currentTapDamage = tapDamage(runLevels, boss);
   const nextBossWave = session.wave + (5 - (session.wave % 5 || 5));
   const chaos = movementChaos(session.wave, boss, runLevels, runMutation);
@@ -1038,6 +1044,14 @@ function App() {
   }, [session]);
 
   useEffect(() => {
+    return () => {
+      if (endScreenTimerRef.current) {
+        window.clearTimeout(endScreenTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (session.status === "active" && mobileView !== "game") {
       setMobileView("game");
     }
@@ -1059,14 +1073,14 @@ function App() {
           const damage = current.pendingAttack.damage;
           const shield = current.shield - damage;
           const currentBoss = current.pendingAttack.boss;
-          shieldImpact = {
-            boss: currentBoss,
-            damage,
-          };
 
           if (shield <= 0) {
             const rebootShield = current.rebootUsed ? 0 : shieldRebootValue(metaRef.current, current.maxShield);
             if (rebootShield > 0) {
+              shieldImpact = {
+                boss: currentBoss,
+                damage,
+              };
               const rebooted = {
                 ...current,
                 shield: rebootShield,
@@ -1079,6 +1093,11 @@ function App() {
               return rebooted;
             }
 
+            shieldImpact = {
+              boss: currentBoss,
+              damage,
+              broken: true,
+            };
             const ended = {
               ...current,
               shield: 0,
@@ -1091,6 +1110,10 @@ function App() {
             return ended;
           }
 
+          shieldImpact = {
+            boss: currentBoss,
+            damage,
+          };
           const next = {
             ...current,
             shield,
@@ -1211,7 +1234,15 @@ function App() {
         lastRun: result,
       };
     });
-    setShowEndScreen(true);
+    if (endScreenTimerRef.current) {
+      window.clearTimeout(endScreenTimerRef.current);
+    }
+    endScreenTimerRef.current = window.setTimeout(() => {
+      if (sessionRef.current.runId === session.runId && sessionRef.current.status === "ended") {
+        setShowEndScreen(true);
+      }
+      endScreenTimerRef.current = null;
+    }, SHIELD_BREAK_TRANSITION_MS);
   }, [daily.dateKey, daily.theme.name, session]);
 
   function addBurst(burst, duration = 700) {
@@ -1243,17 +1274,21 @@ function App() {
       const oscillator = context.createOscillator();
       const gain = context.createGain();
       const fullMiss = kind === "miss";
+      const shieldBreak = kind === "shield-break";
       const shieldHit = kind === "shield-hit" || kind === "boss-hit";
       const bossHit = kind === "boss-hit";
-      oscillator.type = shieldHit ? "sawtooth" : fullMiss ? "square" : "triangle";
-      oscillator.frequency.setValueAtTime(bossHit ? 86 : shieldHit ? 112 : fullMiss ? 126 : 196, now);
-      oscillator.frequency.exponentialRampToValueAtTime(bossHit ? 42 : shieldHit ? 58 : fullMiss ? 72 : 142, now + (shieldHit ? 0.13 : 0.09));
-      gain.gain.setValueAtTime(bossHit ? 0.078 : shieldHit ? 0.062 : fullMiss ? 0.055 : 0.032, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + (shieldHit ? 0.15 : 0.1));
+      oscillator.type = shieldBreak || shieldHit ? "sawtooth" : fullMiss ? "square" : "triangle";
+      oscillator.frequency.setValueAtTime(shieldBreak ? 148 : bossHit ? 86 : shieldHit ? 112 : fullMiss ? 126 : 196, now);
+      oscillator.frequency.exponentialRampToValueAtTime(
+        shieldBreak ? 34 : bossHit ? 42 : shieldHit ? 58 : fullMiss ? 72 : 142,
+        now + (shieldBreak ? 0.32 : shieldHit ? 0.13 : 0.09),
+      );
+      gain.gain.setValueAtTime(shieldBreak ? 0.09 : bossHit ? 0.078 : shieldHit ? 0.062 : fullMiss ? 0.055 : 0.032, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + (shieldBreak ? 0.36 : shieldHit ? 0.15 : 0.1));
       oscillator.connect(gain);
       gain.connect(context.destination);
       oscillator.start(now);
-      oscillator.stop(now + (shieldHit ? 0.16 : 0.11));
+      oscillator.stop(now + (shieldBreak ? 0.38 : shieldHit ? 0.16 : 0.11));
     } catch {
       // Haptics and visual feedback still carry the miss if audio is unavailable.
     }
@@ -1284,7 +1319,12 @@ function App() {
     triggerArenaFeedback({ kind, label: penalty.label });
   }
 
-  function triggerShieldHitFeedback({ boss: hitFromBoss, damage }) {
+  function triggerShieldHitFeedback({ boss: hitFromBoss, damage, broken }) {
+    if (broken) {
+      triggerShieldBreakFeedback({ boss: hitFromBoss, damage });
+      return;
+    }
+
     const kind = hitFromBoss ? "boss-hit" : "shield-hit";
     if (navigator.vibrate) {
       navigator.vibrate(hitFromBoss ? [32, 34, 32] : [18, 28, 18]);
@@ -1293,6 +1333,17 @@ function App() {
       kind,
       label: hitFromBoss ? `Boss hit -${damage}` : `Shield hit -${damage}`,
       duration: hitFromBoss ? 720 : 640,
+    });
+  }
+
+  function triggerShieldBreakFeedback({ boss: hitFromBoss, damage }) {
+    if (navigator.vibrate) {
+      navigator.vibrate(hitFromBoss ? [44, 48, 70, 80, 130] : [36, 44, 62, 72, 110]);
+    }
+    triggerArenaFeedback({
+      kind: "shield-break",
+      label: hitFromBoss ? `Boss breach -${damage}` : `Shield breach -${damage}`,
+      duration: SHIELD_BREAK_TRANSITION_MS - 160,
     });
   }
 
@@ -1421,7 +1472,7 @@ function App() {
       y: clamp(y, 12, 88),
       label: penalty.damage ? `${penalty.label} -${penalty.damage}` : penalty.label,
     };
-    triggerMissFeedback(penalty);
+    let shieldBreakFeedback = null;
 
     setSession((current) => {
       if (current.status !== "active") return current;
@@ -1442,6 +1493,10 @@ function App() {
           };
         }
 
+        shieldBreakFeedback = {
+          boss: false,
+          damage,
+        };
         return {
           ...current,
           shield: 0,
@@ -1463,6 +1518,12 @@ function App() {
         score: Math.max(0, current.score - damage * penalty.scoreLoss),
       };
     });
+
+    if (shieldBreakFeedback) {
+      triggerShieldBreakFeedback(shieldBreakFeedback);
+    } else {
+      triggerMissFeedback(penalty);
+    }
     addBurst(missBurst, 650);
   }
 
@@ -1536,6 +1597,10 @@ function App() {
     const reward = overclockCoreReward(current);
     if (reward <= 0 || sessionRef.current.status === "active") return;
 
+    if (endScreenTimerRef.current) {
+      window.clearTimeout(endScreenTimerRef.current);
+      endScreenTimerRef.current = null;
+    }
     const retainedStartWave = retainedStartWaveAfterOverclock(current.coreUpgrades);
     const nextMeta = {
       ...current,
@@ -1601,6 +1666,10 @@ function App() {
 
   function newRun() {
     if (sessionRef.current.status === "active") return;
+    if (endScreenTimerRef.current) {
+      window.clearTimeout(endScreenTimerRef.current);
+      endScreenTimerRef.current = null;
+    }
     finishedRunRef.current = "";
     setShareStatus("idle");
     setShowEndScreen(false);
@@ -1664,7 +1733,7 @@ function App() {
 
   return (
     <main className={`app-shell mobile-${mobileView}-open run-${session.status}`} style={{ "--theme-accent": daily.theme.accent }}>
-      <section className={`game-card game-${session.status}`} aria-label="ClickDefense wave game">
+      <section className={`game-card game-${session.status} ${shieldDanger ? "shield-danger" : ""} ${shieldBroken ? "shield-broken" : ""}`} aria-label="ClickDefense wave game">
         <header className="game-header">
           <div className="brand-lockup">
             <span className="speed-lines" aria-hidden="true" />
@@ -1716,13 +1785,13 @@ function App() {
               </div>
             </div>
 
-            <div className={`shield-generator ${shieldUnderFire ? "under-fire" : ""}`} aria-hidden="true">
+            <div className={`shield-generator ${shieldUnderFire ? "under-fire" : ""} ${shieldDanger ? "danger" : ""} ${shieldBroken ? "broken" : ""}`} aria-hidden="true">
               <span className="shield-dome" style={{ "--shield-fill": `${shieldPercent}%` }} />
               <span className="shield-core" />
               <span className="shield-pad" />
             </div>
 
-            <div className={`shield-panel ${shieldUnderFire ? "under-fire" : ""}`}>
+            <div className={`shield-panel ${shieldUnderFire ? "under-fire" : ""} ${shieldDanger ? "danger" : ""} ${shieldBroken ? "broken" : ""}`}>
               <span>Shield</span>
               <strong>
                 {session.shield}/{session.maxShield}
@@ -1765,6 +1834,18 @@ function App() {
               <span className="target-cracks" aria-hidden="true" />
               <span className="target-core">{session.status === "ready" ? "GO" : boss ? "BOSS" : "HIT"}</span>
             </button>
+
+            {shieldBroken && !showEndScreen ? (
+              <div className="shield-break-overlay" role="status" aria-live="polite">
+                <span className="breach-ring" />
+                <span className="breach-fragment frag-1" />
+                <span className="breach-fragment frag-2" />
+                <span className="breach-fragment frag-3" />
+                <span className="breach-fragment frag-4" />
+                <strong>Shield breached</strong>
+                <small>run ending...</small>
+              </div>
+            ) : null}
 
             <div className="tap-instruction" aria-hidden="true">
               <span>{boss ? "TAP THE BOSS" : "TAP THE TARGET"}</span>
