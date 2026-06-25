@@ -990,6 +990,7 @@ function App() {
   const [session, setSession] = useState(() => createSession(daily, initialMeta));
   const [bursts, setBursts] = useState([]);
   const [shots, setShots] = useState([]);
+  const [missFeedback, setMissFeedback] = useState(null);
   const [shareStatus, setShareStatus] = useState("idle");
   const [showEndScreen, setShowEndScreen] = useState(false);
   const [mobileView, setMobileView] = useState("game");
@@ -1000,6 +1001,8 @@ function App() {
   });
   const metaRef = useRef(meta);
   const sessionRef = useRef(session);
+  const audioRef = useRef(null);
+  const feedbackIdRef = useRef(0);
   const finishedRunRef = useRef("");
 
   const boss = isBossWave(session.wave);
@@ -1219,6 +1222,56 @@ function App() {
     }, duration);
   }
 
+  function playMissSound(kind) {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+
+      const context = audioRef.current || new AudioContext();
+      audioRef.current = context;
+      if (context.state === "suspended") {
+        void context.resume().catch(() => {});
+      }
+
+      const now = context.currentTime;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const fullMiss = kind === "miss";
+      oscillator.type = fullMiss ? "square" : "triangle";
+      oscillator.frequency.setValueAtTime(fullMiss ? 126 : 196, now);
+      oscillator.frequency.exponentialRampToValueAtTime(fullMiss ? 72 : 142, now + 0.09);
+      gain.gain.setValueAtTime(fullMiss ? 0.055 : 0.032, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start(now);
+      oscillator.stop(now + 0.11);
+    } catch {
+      // Haptics and visual feedback still carry the miss if audio is unavailable.
+    }
+  }
+
+  function triggerMissFeedback(penalty) {
+    const kind = penalty.damage > 0 ? (penalty.near ? "near" : "miss") : "graze";
+    const now = Date.now();
+    feedbackIdRef.current += 1;
+    const id = `feedback-${now}-${kind}-${feedbackIdRef.current}`;
+    setMissFeedback({
+      id,
+      kind,
+      label: penalty.label,
+    });
+
+    window.setTimeout(() => {
+      setMissFeedback((current) => (current?.id === id ? null : current));
+    }, 620);
+
+    if (navigator.vibrate) {
+      navigator.vibrate(kind === "miss" ? [24, 34, 28] : kind === "near" ? 14 : 8);
+    }
+    playMissSound(kind);
+  }
+
   function incomingShotFor(current, damage, now, windup) {
     const currentBoss = isBossWave(current.wave);
     const levels = effectiveLevels(metaRef.current);
@@ -1336,6 +1389,15 @@ function App() {
     const distance = Math.hypot(event.clientX - rect.left - targetCenterX, event.clientY - rect.top - targetCenterY);
     const distanceRatio = distance / Math.max(1, targetSize(levels, mutation) / 2);
     const penalty = missPenaltyForDistance(levels, distanceRatio);
+    feedbackIdRef.current += 1;
+    const missBurst = {
+      id: `miss-${Date.now()}-${feedbackIdRef.current}`,
+      kind: penalty.near ? "miss near" : "miss",
+      x: clamp(x, 12, 88),
+      y: clamp(y, 12, 88),
+      label: penalty.damage ? `${penalty.label} -${penalty.damage}` : penalty.label,
+    };
+    triggerMissFeedback(penalty);
 
     setSession((current) => {
       if (current.status !== "active") return current;
@@ -1343,16 +1405,6 @@ function App() {
       const shield = current.shield - damage;
       const nearMisses = current.nearMisses + (penalty.near ? 1 : 0);
       const keepsCombo = damage === 0;
-      addBurst(
-        {
-          id: `${Date.now()}-${current.misses}`,
-          kind: penalty.near ? "miss near" : "miss",
-          x,
-          y,
-          label: damage ? `${penalty.label} -${damage}` : penalty.label,
-        },
-        650,
-      );
       if (shield <= 0) {
         const rebootShield = current.rebootUsed ? 0 : shieldRebootValue(metaRef.current, current.maxShield);
         if (rebootShield > 0) {
@@ -1387,6 +1439,7 @@ function App() {
         score: Math.max(0, current.score - damage * penalty.scoreLoss),
       };
     });
+    addBurst(missBurst, 650);
   }
 
   function buyUpgrade(upgradeId) {
@@ -1614,6 +1667,11 @@ function App() {
 
         <section className="play-wrap">
           <div className={`play-field ${boss ? "boss-field" : ""}`} onPointerDown={missField}>
+            {missFeedback ? (
+              <span className={`miss-feedback ${missFeedback.kind}`} key={missFeedback.id} aria-hidden="true">
+                <b>{missFeedback.label}</b>
+              </span>
+            ) : null}
             <div className={`wave-banner ${boss ? "boss" : ""}`}>
               <strong>{boss ? "BOSS WAVE" : `WAVE ${session.wave}`}</strong>
               <span>{boss ? "Break the drone before it cracks your shield" : "Tap the moving target. Misses damage the shield."}</span>
