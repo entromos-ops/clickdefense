@@ -75,6 +75,117 @@ button:not(:disabled) {
 }
 
 @media (max-width: 759px) {
+  .app-shell.run-ready {
+    grid-template-rows: minmax(0, 1fr);
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .app-shell.run-ready .stats-strip {
+    display: none;
+  }
+
+  .game-card.game-ready {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .game-card.game-ready .hud {
+    display: none;
+  }
+
+  .game-card.game-ready .game-header {
+    min-height: 50px;
+    padding: 7px 8px;
+  }
+
+  .game-card.game-ready .speed-lines {
+    width: 22px;
+    height: 21px;
+  }
+
+  .game-card.game-ready h1 {
+    font-size: clamp(1.16rem, 5.3vw, 1.46rem);
+    line-height: 0.94;
+  }
+
+  .game-card.game-ready .arena-name {
+    max-width: 132px;
+    font-size: 0.58rem;
+  }
+
+  .game-card.game-ready .top-bank {
+    min-width: 74px;
+    min-height: 38px;
+    padding: 4px 6px;
+  }
+
+  .game-card.game-ready .top-bank span {
+    width: 22px;
+    height: 22px;
+    border-width: 2px;
+    font-size: 0.78rem;
+  }
+
+  .game-card.game-ready .top-bank strong {
+    font-size: 0.86rem;
+  }
+
+  .game-card.game-ready .settings-button {
+    width: 42px;
+    height: 42px;
+  }
+
+  .game-card.game-ready .play-wrap {
+    padding: 8px 8px 0;
+  }
+
+  .game-card.game-ready .play-field {
+    min-height: 0;
+  }
+
+  .game-card.game-ready .wave-banner {
+    top: 8px;
+    width: auto;
+    min-width: 116px;
+    padding: 7px 12px;
+  }
+
+  .game-card.game-ready .wave-banner span {
+    display: none;
+  }
+
+  .game-card.game-ready .field-status {
+    display: none;
+  }
+
+  .game-card.game-ready .enemy-panel {
+    top: 58px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    min-width: 0;
+    padding: 7px 8px;
+  }
+
+  .game-card.game-ready .enemy-title span {
+    display: none;
+  }
+
+  .game-card.game-ready .tap-instruction {
+    bottom: clamp(110px, 18%, 132px);
+  }
+
+  .game-card.game-ready .tap-instruction span {
+    font-size: clamp(1.26rem, 7.2vw, 1.9rem);
+  }
+
+  .game-card.game-ready .tap-instruction strong {
+    font-size: 0.72rem;
+  }
+
+  .game-card.game-ready .bank-row {
+    display: none;
+  }
+
   .app-shell.run-active {
     grid-template-rows: minmax(0, 1fr);
     padding-bottom: max(8px, env(safe-area-inset-bottom));
