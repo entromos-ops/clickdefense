@@ -9,7 +9,7 @@ const themes = [
   { name: "Laser Pickles", emoji: "🥒", accent: "#34d399" },
   { name: "Moon Mall", emoji: "🌙", accent: "#8bd7ff" },
   { name: "Confetti Volcano", emoji: "🎊", accent: "#ff6b57" },
-  { name: "Turbo Laundry", emoji: "🧺", accent: "#35c6ff" },
+  { name: "Aqua Circuit", emoji: "🧺", accent: "#35c6ff" },
   { name: "Neon Nachos", emoji: "🔺", accent: "#fbbf24" },
   { name: "Sock Rocket", emoji: "🚀", accent: "#ff7ab6" },
   { name: "Bubblegum Speedway", emoji: "🫧", accent: "#fb6fbd" },
@@ -793,16 +793,30 @@ function performanceLine(session) {
   return "👆💥 Built for one more wave";
 }
 
-function shareTextFor(session, daily) {
+function currentShareUrl() {
   const url = window.location.origin || window.location.href;
+  return url === "null" ? window.location.href : url;
+}
+
+function shareTextFor(session, url = currentShareUrl()) {
   const rank = rankForWave(session.wave);
   return [
-    `ClickDefense ${daily.theme.emoji} ${daily.theme.name}`,
+    "ClickDefense run",
     `Score: ${formatNumber(session.score)}`,
     `Wave ${session.wave} - ${rank}`,
     performanceLine(session),
     url,
   ].join("\n");
+}
+
+function nativeShareDataFor(session) {
+  const url = currentShareUrl();
+  const rank = rankForWave(session.wave);
+  return {
+    title: "ClickDefense",
+    text: [`Score: ${formatNumber(session.score)}`, `Wave ${session.wave} - ${rank}`, performanceLine(session)].join("\n"),
+    url,
+  };
 }
 
 async function copyText(text) {
@@ -826,8 +840,9 @@ async function copyText(text) {
   textarea.remove();
 }
 
-function shouldUseNativeShare() {
+function shouldUseNativeShare(data) {
   if (typeof navigator.share !== "function") return false;
+  if (typeof navigator.canShare === "function" && !navigator.canShare(data)) return false;
 
   const userAgent = navigator.userAgent || "";
   const mobileDevice = /Android|iPhone|iPad|iPod/i.test(userAgent);
@@ -1716,12 +1731,13 @@ function App() {
   }
 
   async function shareScore() {
-    const text = shareTextFor(session, daily);
+    const shareData = nativeShareDataFor(session);
+    const text = shareTextFor(session, shareData.url);
     setShareStatus("working");
 
     try {
-      if (shouldUseNativeShare()) {
-        await navigator.share({ title: "ClickDefense", text });
+      if (shouldUseNativeShare(shareData)) {
+        await navigator.share(shareData);
         setShareStatus("shared");
       } else {
         await copyText(text);
